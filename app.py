@@ -8,7 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    json_path = r'C:\data\service-account.json'
+    json_path = 'service-account.json'
     if not os.path.exists(json_path):
         return "file_not_found", None
     
@@ -104,7 +104,7 @@ else:
             st.rerun()
             
         # [수정] 파일 업로드 위젯 제거 -> 지정된 경로의 파일 자동 로드
-        file_path = r'C:\data\data.csv'
+        file_path = 'data.csv'
         
         if os.path.exists(file_path):
             try:
