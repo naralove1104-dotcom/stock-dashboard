@@ -4,30 +4,26 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
-import json
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
     # 1. 금고에 키가 있는지 확인
-    if "GOOGLE_KEY" not in st.secrets:
-        return "secret_missing", "Streamlit Settings -> Secrets에 'GOOGLE_KEY'가 없습니다. 이름을 확인해주세요."
+    if "google_credentials" not in st.secrets:
+        return "secret_missing", "Streamlit Settings -> Secrets 설정이 누락되었습니다."
     
-    # 2. JSON 형식 확인
+    # 2. 구글 인증 및 연결 (에러를 일으키던 json 코드를 뺐습니다!)
     try:
-        key_dict = json.loads(st.secrets["GOOGLE_KEY"])
-    except Exception as e:
-        return "json_error", f"Secrets에 넣은 내용의 형식이 잘못되었습니다. 큰따옴표 3개로 잘 감싸져 있는지 확인하세요! 상세오류: {e}"
+        # Streamlit이 자동으로 깔끔하게 읽어옵니다.
+        key_dict = dict(st.secrets["google_credentials"])
         
-    # 3. 구글 인증 및 연결
-    try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
         client = gspread.authorize(creds)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
     except Exception as e:
-        return "auth_error", f"구글 인증 실패 또는 시트를 찾을 수 없습니다: {e}"
+        return "auth_error", f"구글 시트 연결 오류: {e}"
 
 # --- 2. 회원가입 및 로그인 로직 ---
 def register_user(user_id, pw, name, pen, phone):
@@ -50,7 +46,6 @@ def check_login(user_id, pw):
 # --- 3. UI 구성 ---
 st.set_page_config(layout="wide")
 
-# 여기서 진단 결과를 띄워줍니다.
 status, data = get_db()
 
 if status != "success":
