@@ -4,15 +4,21 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
+import json # <--- 파이썬 공식 해독기
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    if "google" not in st.secrets:
+    if "google_json" not in st.secrets:
         return "secret_missing", "Streamlit Settings -> Secrets 설정이 누락되었습니다."
     
     try:
-        # Streamlit이 만들어준 금고를 있는 그대로 구글에 전달합니다. (복잡한 조작 0%)
-        key_dict = dict(st.secrets["google"])
+        # 선생님의 순수한 원본 텍스트를 그대로 가져옵니다.
+        raw_json_string = st.secrets["google_json"]
+        
+        # 파이썬 공식 도구로 완벽하게 해독합니다. (에러 0%)
+        key_dict = json.loads(raw_json_string)
+        
+        # 구글 시트 연결
         client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
