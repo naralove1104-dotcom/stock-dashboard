@@ -4,6 +4,7 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
+import re  # <--- 암호키 청소를 위한 도구 추가!
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
@@ -14,11 +15,16 @@ def get_db():
         # 1. 금고에서 데이터 가져오기
         key_dict = dict(st.secrets["google_credentials"])
         
-        # 2. [핵심] 암호키에 묻은 보이지 않는 찌꺼기와 줄바꿈 오류를 강제로 청소합니다.
-        clean_key = key_dict['private_key'].replace('\\n', '\n')
-        key_dict['private_key'] = clean_key
+        # 2. [완벽 복구 로직] 복사 과정에서 묻은 모든 공백, 띄어쓰기, 줄바꿈을 갈아엎고 새로 조립합니다.
+        raw_key = key_dict['private_key']
+        core_key = raw_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '')
+        core_key = re.sub(r'\s+', '', core_key.replace('\\n', '')) # 불순물 100% 제거
         
-        # 3. 최신 방식으로 더 빠르고 안정적이게 구글 시트 연결
+        # 64글자씩 예쁘게 줄바꿈하여 완벽한 규격의 구글 암호키로 재탄생시킵니다.
+        chunked_key = '\n'.join([core_key[i:i+64] for i in range(0, len(core_key), 64)])
+        key_dict['private_key'] = f"-----BEGIN PRIVATE KEY-----\n{chunked_key}\n-----END PRIVATE KEY-----\n"
+        
+        # 3. 구글 시트 연결
         client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
