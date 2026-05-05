@@ -4,27 +4,25 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
+import json # <--- 이거 추가!
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    json_path = 'service-account.json'
-    if not os.path.exists(json_path):
-        return "file_not_found", None
-    
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name(json_path, scope)
+        
+        # [핵심 수정] 파일이 아니라 Streamlit 금고(Secrets)에서 키를 가져옵니다!
+        key_dict = json.loads(st.secrets["GOOGLE_KEY"])
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
         client = gspread.authorize(creds)
         
-        try:
-            sheet = client.open("회원DB").get_worksheet(0)
-            return "success", sheet
-        except gspread.exceptions.SpreadsheetNotFound:
-            return "not_found", [sh.title for sh in client.openall()]
-            
+        sheet = client.open("회원DB").get_worksheet(0)
+        return "success", sheet
     except Exception as e:
         return "error", str(e)
+
+# (이 아래 코드들은 기존과 100% 동일하게 그대로 두시면 됩니다.)
 
 # --- 2. 회원가입 및 로그인 로직 ---
 def register_user(user_id, pw, name, pen, phone):
