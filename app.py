@@ -4,21 +4,38 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
+import textwrap # <--- 완벽 조립 도구
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    if "google_credentials" not in st.secrets:
+    if "google" not in st.secrets:
         return "secret_missing", "Streamlit Settings -> Secrets 설정이 누락되었습니다."
     
     try:
-        # 1. 금고에서 데이터 가져오기
-        key_dict = dict(st.secrets["google_credentials"])
+        # 1. 금고에서 안전한 한 줄짜리 암호 가져오기
+        raw_key = st.secrets["google"]["key"]
+        email = st.secrets["google"]["email"]
         
-        # 2. 단순히 텍스트 상의 '\n'을 실제 줄바꿈으로만 바꿔줍니다. (절대 다른 것은 건드리지 않습니다)
-        if "\\n" in key_dict['private_key']:
-            key_dict['private_key'] = key_dict['private_key'].replace('\\n', '\n')
-            
-        # 3. 구글 시트 연결
+        # 2. 파이썬이 구글이 좋아하는 형태로 암호를 자동 조립합니다. (복사/붙여넣기 에러 차단)
+        wrapped_key = '\n'.join(textwrap.wrap(raw_key, 64))
+        real_private_key = f"-----BEGIN PRIVATE KEY-----\n{wrapped_key}\n-----END PRIVATE KEY-----\n"
+        
+        # 3. 신분증 완성하기
+        key_dict = {
+            "type": "service_account",
+            "project_id": "custom-temple-495412-u8",
+            "private_key_id": "28ef0598aa85da298f2c8a6a74b62c048decbcce",
+            "private_key": real_private_key,
+            "client_email": email,
+            "client_id": "100974354815304032949",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{email.replace('@', '%40')}",
+            "universe_domain": "googleapis.com"
+        }
+        
+        # 4. 구글 시트 연결
         client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
