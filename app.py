@@ -4,21 +4,15 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
-import json # <--- 가장 안정적인 파이썬 내장 도구
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    if "google_json" not in st.secrets:
+    if "google" not in st.secrets:
         return "secret_missing", "Streamlit Settings -> Secrets 설정이 누락되었습니다."
     
     try:
-        # 1. 자물쇠가 채워진 순수한 텍스트 데이터를 그대로 가져옵니다.
-        raw_json_string = st.secrets["google_json"]
-        
-        # 2. 파이썬의 공식 도구를 이용해 에러 없이 완벽하게 해독합니다.
-        key_dict = json.loads(raw_json_string)
-        
-        # 3. 구글 시트 연결
+        # Streamlit이 만들어준 금고를 있는 그대로 구글에 전달합니다. (복잡한 조작 0%)
+        key_dict = dict(st.secrets["google"])
         client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
