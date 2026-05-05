@@ -4,24 +4,25 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
-from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
-    # 1. 금고에 키가 있는지 확인
     if "google_credentials" not in st.secrets:
         return "secret_missing", "Streamlit Settings -> Secrets 설정이 누락되었습니다."
     
-    # 2. 구글 인증 및 연결 (에러를 일으키던 json 코드를 뺐습니다!)
     try:
-        # Streamlit이 자동으로 깔끔하게 읽어옵니다.
+        # 1. 금고에서 데이터 가져오기
         key_dict = dict(st.secrets["google_credentials"])
         
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
-        client = gspread.authorize(creds)
+        # 2. [핵심] 암호키에 묻은 보이지 않는 찌꺼기와 줄바꿈 오류를 강제로 청소합니다.
+        clean_key = key_dict['private_key'].replace('\\n', '\n')
+        key_dict['private_key'] = clean_key
+        
+        # 3. 최신 방식으로 더 빠르고 안정적이게 구글 시트 연결
+        client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
+        
     except Exception as e:
         return "auth_error", f"구글 시트 연결 오류: {e}"
 
