@@ -4,7 +4,6 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
-import re  # <--- 불순물 제거를 위한 도구
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
@@ -15,21 +14,10 @@ def get_db():
         # 1. 금고에서 데이터 가져오기
         key_dict = dict(st.secrets["google_credentials"])
         
-        # 2. [초강력 복구 필터] 눈에 보이지 않는 찌꺼기를 100% 파괴합니다.
-        raw_key = key_dict.get('private_key', '')
-        
-        # 꼬리표 떼어내기
-        core_key = raw_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '')
-        
-        # 암호키에 허용된 글자(영어, 숫자, +, /, =)만 남기고 한글, 띄어쓰기, 줄바꿈 등 모든 것을 삭제!
-        core_key = re.sub(r'[^A-Za-z0-9+/=]', '', core_key)
-        
-        # 구글이 좋아하는 64글자 규격으로 완벽하게 재조립
-        chunked_key = '\n'.join([core_key[i:i+64] for i in range(0, len(core_key), 64)])
-        perfect_key = f"-----BEGIN PRIVATE KEY-----\n{chunked_key}\n-----END PRIVATE KEY-----\n"
-        
-        key_dict['private_key'] = perfect_key
-        
+        # 2. 단순히 텍스트 상의 '\n'을 실제 줄바꿈으로만 바꿔줍니다. (절대 다른 것은 건드리지 않습니다)
+        if "\\n" in key_dict['private_key']:
+            key_dict['private_key'] = key_dict['private_key'].replace('\\n', '\n')
+            
         # 3. 구글 시트 연결
         client = gspread.service_account_from_dict(key_dict)
         sheet = client.open("회원DB").get_worksheet(0)
