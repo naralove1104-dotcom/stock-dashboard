@@ -4,25 +4,30 @@ import plotly.express as px
 import gspread
 import bcrypt
 import os
-import json # <--- 이거 추가!
+import json
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 보안 및 DB 설정 ---
 def get_db():
+    # 1. 금고에 키가 있는지 확인
+    if "GOOGLE_KEY" not in st.secrets:
+        return "secret_missing", "Streamlit Settings -> Secrets에 'GOOGLE_KEY'가 없습니다. 이름을 확인해주세요."
+    
+    # 2. JSON 형식 확인
+    try:
+        key_dict = json.loads(st.secrets["GOOGLE_KEY"])
+    except Exception as e:
+        return "json_error", f"Secrets에 넣은 내용의 형식이 잘못되었습니다. 큰따옴표 3개로 잘 감싸져 있는지 확인하세요! 상세오류: {e}"
+        
+    # 3. 구글 인증 및 연결
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        
-        # [핵심 수정] 파일이 아니라 Streamlit 금고(Secrets)에서 키를 가져옵니다!
-        key_dict = json.loads(st.secrets["GOOGLE_KEY"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
         client = gspread.authorize(creds)
-        
         sheet = client.open("회원DB").get_worksheet(0)
         return "success", sheet
     except Exception as e:
-        return "error", str(e)
-
-# (이 아래 코드들은 기존과 100% 동일하게 그대로 두시면 됩니다.)
+        return "auth_error", f"구글 인증 실패 또는 시트를 찾을 수 없습니다: {e}"
 
 # --- 2. 회원가입 및 로그인 로직 ---
 def register_user(user_id, pw, name, pen, phone):
@@ -45,14 +50,12 @@ def check_login(user_id, pw):
 # --- 3. UI 구성 ---
 st.set_page_config(layout="wide")
 
+# 여기서 진단 결과를 띄워줍니다.
 status, data = get_db()
 
 if status != "success":
     st.error("🚫 시스템 연결 설정 확인 중...")
-    if status == "file_not_found":
-        st.info("C:\\data 폴더 안에 'service-account.json' 파일이 있는지 확인해 주세요.")
-    elif status == "not_found":
-        st.warning("구글 시트 '회원DB'를 찾을 수 없습니다.")
+    st.warning(f"상세 원인: {data}")
     st.stop()
 
 if 'auth' not in st.session_state:
@@ -93,7 +96,7 @@ if not st.session_state['auth']:
             else:
                 st.warning("모든 필수 정보를 입력해 주세요.")
 
-# --- 대시보드 화면 (로그인 성공 시) ---
+# --- 대시보드 화면 ---
 else:
     if st.session_state['status'] == "정상":
         st.title("📊 상장사 재무정보 대시보드")
@@ -101,12 +104,10 @@ else:
             st.session_state['auth'] = False
             st.rerun()
             
-        # [수정] 파일 업로드 위젯 제거 -> 지정된 경로의 파일 자동 로드
         file_path = 'data.csv'
         
         if os.path.exists(file_path):
             try:
-                # 데이터를 조용히 백그라운드에서 읽어옵니다.
                 df = pd.read_csv(file_path, header=0, encoding='utf-8-sig')
                 df.columns = df.columns.str.strip()
                 target_items = ["매출액(3개월)", "영업이익(3개월)", "OPM(3개월)", "순이익(3개월)", "자산총계", "부채총계", "자본총계"]
@@ -129,8 +130,7 @@ else:
             except Exception as e:
                 st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
         else:
-            # 관리자(선생님)가 파일을 제자리에 두지 않았을 때 뜨는 에러
-            st.error(f"데이터 파일을 찾을 수 없습니다. C:\\data 폴더 안에 'data.csv' 파일이 있는지 확인해주세요.")
+            st.error(f"데이터 파일을 찾을 수 없습니다. 깃허브에 'data.csv' 파일이 있는지 확인해주세요.")
             
     else:
         st.error("🚫 이용 권한이 만료된 계정입니다. 연장 후 이용해 주세요.")
